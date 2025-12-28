@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+sqlalchemy
+aiosqlite
+requests
+beautifulsoup4
+fake-useragent
+apscheduler
+pydantic
+python-multipart
+python-jose[cryptography]
+passlib[bcrypt]
+playwright
+pytz
