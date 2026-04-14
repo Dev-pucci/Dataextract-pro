@@ -1,10 +1,13 @@
+import asyncio
+import logging
+from datetime import datetime
+from functools import partial
+
 from sqlalchemy import select
 from database import AsyncSessionLocal
 from models import ScrapeJob, JobStatus, Product, ScheduledJob
 from scraper.jumia import JumiaScraper
 from scraper.kilimall import KilimallScraper
-from datetime import datetime
-import logging
 
 async def run_scraper_task(job_id: int):
     async with AsyncSessionLocal() as session:
@@ -25,15 +28,13 @@ async def run_scraper_task(job_id: int):
                 scraper = KilimallScraper()
             
             if scraper:
-                # Note: Scraper might need to be async or run in a thread executor if it's blocking
-                # Assuming scraper.scrape is synchronous and blocking, we might want to run it in a thread pool
-                # But for now, let's keep it as is, assuming it works (it was working in main.py)
-
-                # Pass max_products to scraper if specified
-                if job.max_products:
-                    products_data = scraper.scrape(job.query, max_products=job.max_products)
-                else:
-                    products_data = scraper.scrape(job.query)
+                # Run the synchronous scraper in a thread pool so it doesn't block
+                # the async event loop. This is critical for Playwright-based scrapers
+                # since sync_playwright() uses asyncio.run() internally and will fail
+                # if called directly from an already-running event loop.
+                loop = asyncio.get_event_loop()
+                scrape_fn = partial(scraper.scrape, job.query, max_products=job.max_products) if job.max_products else partial(scraper.scrape, job.query)
+                products_data = await loop.run_in_executor(None, scrape_fn)
 
                 for p_data in products_data:
                     product = Product(job_id=job.id, **p_data)

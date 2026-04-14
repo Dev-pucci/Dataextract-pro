@@ -1,3 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pycache
+*.db
+*.sqlite3
+.env
+.venv/
+venv/
+
 # Logs
 logs
 *.log

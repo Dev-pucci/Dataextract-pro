@@ -30,6 +30,7 @@ import PastScheduledJobsTable from './components/PastScheduledJobsTable';
 import UserManagementTable from './components/UserManagementTable';
 import Settings from './components/Settings';
 import AccountSettings from './components/AccountSettings';
+import JobsSummaryTable from './components/JobsSummaryTable';
 
 function App() {
   const [jobs, setJobs] = useState([]);
@@ -174,8 +175,12 @@ function App() {
         <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <LayoutDashboard className="h-8 w-8 text-indigo-600" />
-              <span className="ml-2 text-xl font-bold text-gray-800">ScraperPro</span>
+              <button onClick={() => setView('dashboard')} className="flex items-center hover:opacity-80 transition-opacity">
+                <svg xmlns="http://www.w3.org/2000/svg" height="32px" viewBox="0 -960 960 960" width="32px" fill="#4f46e5">
+                  <path d="M480-200q66 0 113-47t47-113v-160q0-66-47-113t-113-47q-66 0-113 47t-47 113v160q0 66 47 113t113 47Zm-80-120h160v-80H400v80Zm0-160h160v-80H400v80Zm80 40Zm0 320q-65 0-120.5-32T272-240H160v-80h84q-3-20-3.5-40t-.5-40h-80v-80h80q0-20 .5-40t3.5-40h-84v-80h112q14-23 31.5-43t40.5-35l-64-66 56-56 86 86q28-9 57-9t57 9l88-86 56 56-66 66q23 15 41.5 34.5T688-640h112v80h-84q3 20 3.5 40t.5 40h80v80h-80q0 20-.5 40t-3.5 40h84v80H688q-32 56-87.5 88T480-120ZM40-720v-120q0-33 23.5-56.5T120-920h120v80H120v120H40ZM240-40H120q-33 0-56.5-23.5T40-120v-120h80v120h120v80Zm480 0v-80h120v-120h80v120q0 33-23.5 56.5T840-40H720Zm120-680v-120H720v-80h120q33 0 56.5 23.5T920-840v120h-80Z"/>
+                </svg>
+                <span className="ml-2 text-xl font-bold text-gray-800">ScraperPro</span>
+              </button>
             </div>
             <div className="flex items-center">
               {user && (
@@ -234,7 +239,7 @@ function App() {
 
       <div className="flex pt-16">
         <aside className="w-20 hover:w-64 bg-white border-r border-gray-200 fixed left-0 top-16 bottom-0 overflow-y-auto overflow-x-hidden transition-all duration-300 z-40 group peer">
-          <nav className="px-3 py-4 flex flex-col space-y-2 relative">
+          <nav className="px-3 py-4 flex flex-col gap-2 relative">
             {menuItems.filter(item => {
               // Hide admin menu for non-admin users
               if (item.id === 'admin' && user?.role !== 'admin') {
@@ -422,6 +427,10 @@ function App() {
                 <h3 className="text-xl font-bold text-gray-900 mb-4">Past Jobs</h3>
                 <PastScheduledJobsTable token={token} onViewProducts={handleViewProducts} />
               </div>
+
+              <div className="mt-8">
+                <JobsSummaryTable token={token} />
+              </div>
             </div>
           )}
 
@@ -453,8 +462,8 @@ function App() {
                 <div className="bg-white rounded-lg shadow p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Jumia Products</p>
-                      <p className="text-3xl font-bold text-black mt-2">{analyticsData?.product_counts?.jumia || 0}</p>
+                      <p className="text-sm font-medium text-gray-600">Products Scraped</p>
+                      <p className="text-3xl font-bold text-black mt-2">{analyticsData?.aggregate_stats?.totalItems || 0}</p>
                     </div>
                     <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
                       <Package className="h-6 w-6 text-blue-600" />
@@ -465,11 +474,11 @@ function App() {
                 <div className="bg-white rounded-lg shadow p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">Kilimall Products</p>
-                      <p className="text-3xl font-bold text-black mt-2">{analyticsData?.product_counts?.kilimall || 0}</p>
+                      <p className="text-sm font-medium text-gray-600">Failed Jobs</p>
+                      <p className="text-3xl font-bold text-black mt-2">{analyticsData?.aggregate_stats?.failed || 0}</p>
                     </div>
-                    <div className="h-12 w-12 bg-cyan-100 rounded-lg flex items-center justify-center">
-                      <Package className="h-6 w-6 text-cyan-600" />
+                    <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
+                      <Package className="h-6 w-6 text-red-600" />
                     </div>
                   </div>
                 </div>
