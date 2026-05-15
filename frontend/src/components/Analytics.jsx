@@ -1,23 +1,24 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import {
-    BarChart,
-    Bar,
-    LineChart,
-    Line,
-    XAxis,
-    YAxis,
-    Tooltip,
-    ResponsiveContainer
-} from 'recharts';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+
+const siteBadgeCls = "px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700";
+const axisTick = { fill: '#6b7280', fontSize: 11 };
+const tooltipProps = { cursor: false, contentStyle: { fontSize: 12 } };
+const noData = (msg) => <div className="text-center text-gray-500 py-8">{msg}</div>;
+
+const Card = ({ title, children }) => (
+    <div className="bg-white rounded-lg shadow p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">{title}</h3>
+        {children}
+    </div>
+);
 
 const Analytics = () => {
     const [analyticsData, setAnalyticsData] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        fetchAnalyticsData();
-    }, []);
+    useEffect(() => { fetchAnalyticsData(); }, []);
 
     const fetchAnalyticsData = async () => {
         try {
@@ -30,30 +31,14 @@ const Analytics = () => {
         }
     };
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <div className="text-gray-500">Loading analytics...</div>
-            </div>
-        );
-    }
-
-    if (!analyticsData) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <div className="text-gray-500">No analytics data available</div>
-            </div>
-        );
-    }
+    if (loading)       return <div className="flex items-center justify-center h-64 text-gray-500">Loading analytics...</div>;
+    if (!analyticsData) return <div className="flex items-center justify-center h-64 text-gray-500">No analytics data available</div>;
 
     const { top_products, price_ranges, activity_over_time, top_queries } = analyticsData;
 
     return (
         <div className="space-y-6">
-
-            {/* 1. Top Products Table */}
-            <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Products by Price</h3>
+            <Card title="Top Products by Price">
                 {top_products.length > 0 ? (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
@@ -71,85 +56,46 @@ const Analytics = () => {
                                     <tr key={i} className="hover:bg-gray-50">
                                         <td className="px-4 py-3 text-gray-400">{i + 1}</td>
                                         <td className="px-4 py-3 text-gray-900 max-w-xs truncate" title={p.title}>{p.title}</td>
-                                        <td className="px-4 py-3">
-                                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
-                                                {p.site}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 font-semibold text-gray-900">
-                                            {p.price.toLocaleString()}
-                                        </td>
+                                        <td className="px-4 py-3"><span className={siteBadgeCls}>{p.site}</span></td>
+                                        <td className="px-4 py-3 font-semibold text-gray-900">{p.price.toLocaleString()}</td>
                                         <td className="px-4 py-3 text-gray-500">{p.scraped_at}</td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
-                ) : (
-                    <div className="text-center text-gray-500 py-8">No product data available</div>
-                )}
-            </div>
+                ) : noData('No product data available')}
+            </Card>
 
-            {/* 2 & 3: Price Range Distribution + Activity Over Time side by side */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-                {/* Price Range Distribution */}
-                <div className="bg-white rounded-lg shadow p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Price Range Distribution</h3>
+                <Card title="Price Range Distribution">
                     {price_ranges.some(r => r.count > 0) ? (
                         <ResponsiveContainer width="100%" height={260}>
                             <BarChart data={price_ranges} barSize={40}>
-                                    <XAxis dataKey="range" tick={{ fill: '#6b7280', fontSize: 11 }} />
-                                <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} allowDecimals={false} />
-                                <Tooltip
-                                    cursor={false}
-                                    formatter={(value) => [value, 'Products']}
-                                    contentStyle={{ fontSize: 12 }}
-                                />
+                                <XAxis dataKey="range" tick={axisTick} />
+                                <YAxis tick={axisTick} allowDecimals={false} />
+                                <Tooltip {...tooltipProps} formatter={(v) => [v, 'Products']} />
                                 <Bar dataKey="count" fill="#4f46e5" radius={[4, 4, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
-                    ) : (
-                        <div className="text-center text-gray-500 py-8">No price data available</div>
-                    )}
-                </div>
+                    ) : noData('No price data available')}
+                </Card>
 
-                {/* Scrape Activity Over Time */}
-                <div className="bg-white rounded-lg shadow p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Scrape Activity Over Time</h3>
+                <Card title="Scrape Activity Over Time">
                     {activity_over_time.length > 0 ? (
                         <ResponsiveContainer width="100%" height={260}>
                             <LineChart data={activity_over_time}>
-                                    <XAxis
-                                    dataKey="date"
-                                    tick={{ fill: '#6b7280', fontSize: 10 }}
-                                    tickFormatter={(v) => v.slice(5)}
-                                />
-                                <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} allowDecimals={false} />
-                                <Tooltip
-                                    cursor={false}
-                                    formatter={(value) => [value, 'Jobs']}
-                                    contentStyle={{ fontSize: 12 }}
-                                />
-                                <Line
-                                    type="monotone"
-                                    dataKey="jobs"
-                                    stroke="#4f46e5"
-                                    strokeWidth={2}
-                                    dot={{ r: 4, fill: '#4f46e5' }}
-                                    activeDot={{ r: 6 }}
-                                />
+                                <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 10 }} tickFormatter={(v) => v.slice(5)} />
+                                <YAxis tick={axisTick} allowDecimals={false} />
+                                <Tooltip {...tooltipProps} formatter={(v) => [v, 'Jobs']} />
+                                <Line type="monotone" dataKey="jobs" stroke="#4f46e5" strokeWidth={2} dot={{ r: 4, fill: '#4f46e5' }} activeDot={{ r: 6 }} />
                             </LineChart>
                         </ResponsiveContainer>
-                    ) : (
-                        <div className="text-center text-gray-500 py-8">No activity data available</div>
-                    )}
-                </div>
+                    ) : noData('No activity data available')}
+                </Card>
             </div>
 
-            {/* 4. Most Searched Queries */}
-            <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Most Searched Queries</h3>
+            <Card title="Most Searched Queries">
                 {top_queries.length > 0 ? (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
@@ -167,11 +113,7 @@ const Analytics = () => {
                                     <tr key={i} className="hover:bg-gray-50">
                                         <td className="px-4 py-3 text-gray-400">{i + 1}</td>
                                         <td className="px-4 py-3 font-medium text-gray-900 capitalize">{q.query}</td>
-                                        <td className="px-4 py-3">
-                                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
-                                                {q.site}
-                                            </span>
-                                        </td>
+                                        <td className="px-4 py-3"><span className={siteBadgeCls}>{q.site}</span></td>
                                         <td className="px-4 py-3 text-gray-700">{q.job_count}</td>
                                         <td className="px-4 py-3 font-semibold text-gray-900">{q.total_items.toLocaleString()}</td>
                                     </tr>
@@ -179,11 +121,8 @@ const Analytics = () => {
                             </tbody>
                         </table>
                     </div>
-                ) : (
-                    <div className="text-center text-gray-500 py-8">No query data available</div>
-                )}
-            </div>
-
+                ) : noData('No query data available')}
+            </Card>
         </div>
     );
 };
