@@ -63,7 +63,9 @@ function App() {
 
   const fetchRecentJobs = async () => {
     try {
-      const res = await axios.get('http://localhost:8000/api/jobs?limit=5');
+      const res = await axios.get('http://localhost:8000/api/jobs?limit=5', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setRecentJobs(res.data.items || []);
     } catch (err) {
       console.error("Error fetching recent jobs", err);
