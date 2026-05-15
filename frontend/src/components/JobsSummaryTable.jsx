@@ -13,28 +13,24 @@ const formatDuration = (start, end) => {
     return rem > 0 ? `${mins}m ${rem}s` : `${mins}m`;
 };
 
+const STATUS = {
+    completed: { cls: 'bg-green-100 text-green-700',  icon: <CheckCircle className="h-3.5 w-3.5" /> },
+    failed:    { cls: 'bg-red-100 text-red-700',       icon: <XCircle    className="h-3.5 w-3.5" /> },
+    running:   { cls: 'bg-blue-100 text-blue-700',     icon: <RefreshCw  className="h-3.5 w-3.5 animate-spin" /> },
+    pending:   { cls: 'bg-yellow-100 text-yellow-700', icon: <Clock      className="h-3.5 w-3.5" /> },
+    paused:    { cls: 'bg-orange-100 text-orange-700', icon: <Pause      className="h-3.5 w-3.5" /> },
+};
+
 const StatusBadge = ({ status }) => {
-    const styles = {
-        completed: 'bg-green-100 text-green-700',
-        failed: 'bg-red-100 text-red-700',
-        running: 'bg-blue-100 text-blue-700',
-        pending: 'bg-yellow-100 text-yellow-700',
-        paused: 'bg-orange-100 text-orange-700',
-    };
-    const icons = {
-        completed: <CheckCircle className="h-3.5 w-3.5" />,
-        failed: <XCircle className="h-3.5 w-3.5" />,
-        running: <RefreshCw className="h-3.5 w-3.5 animate-spin" />,
-        pending: <Clock className="h-3.5 w-3.5" />,
-        paused: <Pause className="h-3.5 w-3.5" />,
-    };
+    const { cls, icon } = STATUS[status] || { cls: 'bg-gray-100 text-gray-600', icon: null };
     return (
-        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium capitalize ${styles[status] || 'bg-gray-100 text-gray-600'}`}>
-            {icons[status]}
-            {status}
+        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium capitalize ${cls}`}>
+            {icon}{status}
         </span>
     );
 };
+
+const pageBtnCls = "relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-40";
 
 const JobsSummaryTable = ({ token }) => {
     const [jobs, setJobs] = useState([]);
@@ -44,9 +40,7 @@ const JobsSummaryTable = ({ token }) => {
     const [total, setTotal] = useState(0);
     const limit = 10;
 
-    useEffect(() => {
-        fetchJobs(1);
-    }, []);
+    useEffect(() => { fetchJobs(1); }, []);
 
     const fetchJobs = async (pageNum) => {
         try {
@@ -72,11 +66,7 @@ const JobsSummaryTable = ({ token }) => {
                     <h3 className="text-lg font-semibold text-gray-900">All Runs Summary</h3>
                     <p className="text-sm text-gray-500 mt-0.5">{total} total job{total !== 1 ? 's' : ''}</p>
                 </div>
-                <button
-                    onClick={() => fetchJobs(page)}
-                    className="p-2 rounded-full hover:bg-gray-100 text-gray-500"
-                    title="Refresh"
-                >
+                <button onClick={() => fetchJobs(page)} className="p-2 rounded-full hover:bg-gray-100 text-gray-500" title="Refresh">
                     <RefreshCw className="h-4 w-4" />
                 </button>
             </div>
@@ -104,13 +94,9 @@ const JobsSummaryTable = ({ token }) => {
                                     <tr key={job.id} className="hover:bg-gray-50">
                                         <td className="px-6 py-4 font-medium text-gray-900 capitalize">{job.query}</td>
                                         <td className="px-6 py-4">
-                                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 capitalize">
-                                                {job.site}
-                                            </span>
+                                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700 capitalize">{job.site}</span>
                                         </td>
-                                        <td className="px-6 py-4">
-                                            <StatusBadge status={job.status} />
-                                        </td>
+                                        <td className="px-6 py-4"><StatusBadge status={job.status} /></td>
                                         <td className="px-6 py-4 text-gray-900 font-semibold">{job.total_items}</td>
                                         <td className="px-6 py-4 text-gray-600">{formatDuration(job.start_time, job.end_time)}</td>
                                         <td className="px-6 py-4 text-gray-500">{new Date(job.start_time).toLocaleString()}</td>
@@ -125,22 +111,10 @@ const JobsSummaryTable = ({ token }) => {
                             Page <span className="font-medium">{page}</span> of <span className="font-medium">{totalPages}</span>
                         </p>
                         <nav className="inline-flex rounded-md shadow-sm -space-x-px">
-                            <button onClick={() => fetchJobs(1)} disabled={page === 1}
-                                className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-40">
-                                <ChevronsLeft className="h-4 w-4" />
-                            </button>
-                            <button onClick={() => fetchJobs(page - 1)} disabled={page === 1}
-                                className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-40">
-                                <ChevronLeft className="h-4 w-4" />
-                            </button>
-                            <button onClick={() => fetchJobs(page + 1)} disabled={page === totalPages}
-                                className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-40">
-                                <ChevronRight className="h-4 w-4" />
-                            </button>
-                            <button onClick={() => fetchJobs(totalPages)} disabled={page === totalPages}
-                                className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm text-gray-500 hover:bg-gray-50 disabled:opacity-40">
-                                <ChevronsRight className="h-4 w-4" />
-                            </button>
+                            <button onClick={() => fetchJobs(1)}          disabled={page === 1}          className={`${pageBtnCls} rounded-l-md`}><ChevronsLeft  className="h-4 w-4" /></button>
+                            <button onClick={() => fetchJobs(page - 1)}   disabled={page === 1}          className={pageBtnCls}                  ><ChevronLeft   className="h-4 w-4" /></button>
+                            <button onClick={() => fetchJobs(page + 1)}   disabled={page === totalPages} className={pageBtnCls}                  ><ChevronRight  className="h-4 w-4" /></button>
+                            <button onClick={() => fetchJobs(totalPages)} disabled={page === totalPages} className={`${pageBtnCls} rounded-r-md`}><ChevronsRight className="h-4 w-4" /></button>
                         </nav>
                     </div>
                 </>
