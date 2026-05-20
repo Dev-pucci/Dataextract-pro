@@ -3,7 +3,7 @@ import axios from 'axios';
 import {
   LayoutDashboard, LogOut, User, ChevronDown, Play, BarChart3,
   Settings as SettingsIcon, History, Calendar, Shield, TrendingUp,
-  Clock, CheckCircle, Package, Users, ChevronRight
+  Clock, CheckCircle, Package, Users, ChevronRight, Scale
 } from 'lucide-react';
 import JobControl from './components/JobControl';
 import JobsList from './components/Dashboard';
@@ -15,7 +15,10 @@ import Scheduler from './components/Scheduler';
 import ScheduledJobsList from './components/ScheduledJobsList';
 import PastScheduledJobsTable from './components/PastScheduledJobsTable';
 import UserManagementTable from './components/UserManagementTable';
+import Settings from './components/Settings';
 import AccountSettings from './components/AccountSettings';
+import PriceComparison from './components/PriceComparison';
+import ComparisonPicker from './components/ComparisonPicker';
 import JobsSummaryTable from './components/JobsSummaryTable';
 
 const StatCard = ({ label, value, icon: Icon, bg, ic }) => (
@@ -41,6 +44,7 @@ function App() {
   const [analyticsData, setAnalyticsData] = useState(null);
   const [showAdminSubmenu, setShowAdminSubmenu] = useState(false);
   const [recentJobs, setRecentJobs] = useState([]);
+  const [comparisonJobs, setComparisonJobs] = useState(null);
 
   useEffect(() => {
     if (token) {
@@ -97,7 +101,15 @@ function App() {
 
   const handleLogin = () => window.location.reload();
   const handleLogout = () => { localStorage.removeItem('token'); window.location.reload(); };
-  const handleJobCreated = () => setView('history');
+  const handleJobCreated = (jobs) => {
+    if (jobs?.length === 2) {
+      setComparisonJobs(jobs);
+      setView('comparison');
+    } else {
+      setView('history');
+    }
+  };
+  const handleCompare = (jobs) => { setComparisonJobs(jobs); setView('comparison'); };
   const handleViewProducts = (job) => { setSelectedJob(job); setView('products'); };
 
   if (!token || view === 'login') {
@@ -120,6 +132,7 @@ function App() {
       icon: Shield,
       submenu: [
         { id: 'admin-users', label: 'Users', icon: Users },
+        { id: 'admin-settings', label: 'Settings', icon: SettingsIcon },
       ]
     },
   ];
@@ -328,7 +341,16 @@ function App() {
 
           {view === 'history' && (
             <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-gray-900">History</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-900">History</h2>
+                <button
+                  onClick={() => setView('comparison-picker')}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                >
+                  <Scale className="h-4 w-4 mr-2" />
+                  Comparison
+                </button>
+              </div>
               <JobsList token={token} onViewProducts={handleViewProducts} />
             </div>
           )}
@@ -340,6 +362,16 @@ function App() {
             </div>
           )}
 
+          {view === 'admin-settings' && <Settings token={token} />}
+
+
+          {view === 'comparison-picker' && (
+            <ComparisonPicker token={token} onCompare={handleCompare} onBack={() => setView('history')} />
+          )}
+
+          {view === 'comparison' && comparisonJobs && (
+            <PriceComparison jobs={comparisonJobs} token={token} onBack={() => setView('history')} />
+          )}
 
           {view === 'products' && selectedJob && (
             <ProductTable job={selectedJob} onBack={() => setView('dashboard')} />
