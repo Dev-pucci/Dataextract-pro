@@ -1,13 +1,54 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 const SITE = {
     jumia:    { badge: 'bg-orange-100 text-orange-700' },
     kilimall: { badge: 'bg-blue-100 text-blue-700' },
 };
 
+// Chart hues: the 600-level of the badge colours, validated for colour-vision
+// separation against a white card.
+const SITE_COLOR = { jumia: '#ea580c', kilimall: '#2563eb' };
+const SITES = ['jumia', 'kilimall'];
+const STATS = [['Lowest', 'min'], ['Median', 'median'], ['Average', 'avg'], ['Highest', 'max']];
+
 const DONE = ['completed', 'failed'];
+const PER_PAGE = 10;
+
+const kes = (v) => `KES ${Math.round(v).toLocaleString()}`;
+const compact = (v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : `${v}`);
+
+const priceStats = (prices) => {
+    if (!prices.length) return null;
+    const sorted = [...prices].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    return {
+        count: sorted.length,
+        min: sorted[0],
+        median,
+        avg: sorted.reduce((s, v) => s + v, 0) / sorted.length,
+        max: sorted[sorted.length - 1],
+    };
+};
+
+const ChartTooltip = ({ active, payload, label }) => {
+    if (!active || !payload?.length) return null;
+    return (
+        <div className="bg-white border border-gray-200 rounded-md shadow-sm px-3 py-2 text-xs space-y-1">
+            <div className="text-gray-500 mb-1">{label}</div>
+            {payload.map(p => (
+                <div key={p.dataKey} className="flex items-center gap-3 text-gray-900">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: p.color }} />
+                    <span className="capitalize">{p.dataKey}</span>
+                    <span className="ml-auto font-medium tabular-nums">{kes(p.value)}</span>
+                </div>
+            ))}
+        </div>
+    );
+};
 
 const PriceComparison = ({ jobs, token, onBack }) => {
     const [statuses, setStatuses] = useState(jobs);
@@ -15,6 +56,7 @@ const PriceComparison = ({ jobs, token, onBack }) => {
     const [loadingProducts, setLoadingProducts] = useState(false);
     const [filter, setFilter] = useState('all');
     const [sortAsc, setSortAsc] = useState(true);
+    const [page, setPage] = useState(1);
 
     const headers = { Authorization: `Bearer ${token}` };
     const query = jobs[0]?.query;
@@ -63,9 +105,27 @@ const PriceComparison = ({ jobs, token, onBack }) => {
     const counts = { jumia: 0, kilimall: 0 };
     products.forEach(p => { if (counts[p.site] !== undefined) counts[p.site]++; });
 
+    // Price stats per site, computed from the scraped products themselves.
+    const stats = Object.fromEntries(
+        SITES.map(s => [s, priceStats(products.filter(p => p.site === s && p.price > 0).map(p => p.price))])
+    );
+    const chartData = STATS.map(([label, key]) => {
+        const row = { stat: label };
+        SITES.forEach(s => { if (stats[s]) row[s] = Math.round(stats[s][key]); });
+        return row;
+    });
+
     const filtered = products
         .filter(p => filter === 'all' || p.site === filter)
         .sort((a, b) => sortAsc ? a.price - b.price : b.price - a.price);
+
+    // Changing the filter or sort could leave you on a page that no longer
+    // exists, so snap back to the first page.
+    useEffect(() => { setPage(1); }, [filter, sortAsc]);
+
+    const pageCount = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
+    const safePage = Math.min(page, pageCount);
+    const paged = filtered.slice((safePage - 1) * PER_PAGE, safePage * PER_PAGE);
 
     return (
         <div className="space-y-4">
@@ -96,6 +156,36 @@ const PriceComparison = ({ jobs, token, onBack }) => {
                     </div>
                 ))}
             </div>
+
+            {allDone && products.length > 0 && (
+                <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-start justify-between mb-4 gap-4 flex-wrap">
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-900">Price Comparison</h3>
+                        </div>
+                        <div className="flex items-center gap-4 text-xs">
+                            {SITES.filter(s => stats[s]).map(s => (
+                                <span key={s} className="inline-flex items-center gap-1.5 text-gray-700">
+                                    <span className="w-2 h-2 rounded-full" style={{ background: SITE_COLOR[s] }} />
+                                    <span className="capitalize">{s}</span>
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={chartData} barGap={2} margin={{ top: 8, right: 8, bottom: 24, left: 0 }}>
+                            <XAxis dataKey="stat" tick={{ fill: '#6b7280', fontSize: 11 }}
+                                label={{ value: 'Price statistic', position: 'insideBottom', offset: -12, fill: '#6b7280', fontSize: 11 }} />
+                            <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} width={72} tickFormatter={compact}
+                                label={{ value: 'Price (KES)', angle: -90, position: 'insideLeft', offset: 12, style: { textAnchor: 'middle' }, fill: '#6b7280', fontSize: 11 }} />
+                            <Tooltip content={<ChartTooltip />} cursor={{ fill: '#f9fafb' }} />
+                            {SITES.filter(s => stats[s]).map(s => (
+                                <Bar key={s} dataKey={s} fill={SITE_COLOR[s]} radius={[4, 4, 0, 0]} maxBarSize={24} />
+                            ))}
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            )}
 
             {!allDone ? (
                 <div className="bg-white rounded-lg shadow p-10 text-center text-gray-500">
@@ -137,9 +227,9 @@ const PriceComparison = ({ jobs, token, onBack }) => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {filtered.length === 0 ? (
+                                {paged.length === 0 ? (
                                     <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-500">No products found</td></tr>
-                                ) : filtered.map(p => (
+                                ) : paged.map(p => (
                                     <tr key={`${p.site}-${p.id}`} className="hover:bg-gray-50">
                                         <td className="px-6 py-4">
                                             <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${SITE[p.site]?.badge}`}>{p.site}</span>
@@ -159,8 +249,27 @@ const PriceComparison = ({ jobs, token, onBack }) => {
                             </tbody>
                         </table>
                     </div>
-                    <div className="px-6 py-3 border-t border-gray-100 text-xs text-gray-400">
-                        Showing {filtered.length} of {products.length} products
+                    <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-between gap-3">
+                        <span className="text-xs text-gray-400">
+                            {filtered.length === 0
+                                ? 'No products'
+                                : `Showing ${(safePage - 1) * PER_PAGE + 1}–${Math.min(safePage * PER_PAGE, filtered.length)} of ${filtered.length}`}
+                        </span>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                disabled={safePage <= 1}
+                                className="px-3 py-1 rounded-md text-sm border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">
+                                Prev
+                            </button>
+                            <span className="text-xs text-gray-500 tabular-nums">Page {safePage} of {pageCount}</span>
+                            <button
+                                onClick={() => setPage(p => Math.min(pageCount, p + 1))}
+                                disabled={safePage >= pageCount}
+                                className="px-3 py-1 rounded-md text-sm border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">
+                                Next
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

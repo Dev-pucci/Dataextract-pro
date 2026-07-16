@@ -11,11 +11,8 @@ const JobControl = ({ onJobCreated, onCancel }) => {
         setLoading(true);
         try {
             if (site === 'both') {
-                const [r1, r2] = await Promise.all([
-                    axios.post('http://localhost:8000/api/jobs', { site: 'jumia',    query }),
-                    axios.post('http://localhost:8000/api/jobs', { site: 'kilimall', query }),
-                ]);
-                onJobCreated([r1.data, r2.data]);
+                const res = await axios.post('http://localhost:8000/api/jobs/both', { query });
+                onJobCreated(res.data);
             } else {
                 await axios.post('http://localhost:8000/api/jobs', { site, query });
                 onJobCreated();

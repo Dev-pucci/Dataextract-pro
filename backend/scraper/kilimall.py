@@ -2,7 +2,7 @@ import re
 import time
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
-from scraper.base import BaseScraper
+from scraper.base import BaseScraper, DEFAULT_MAX_PRODUCTS
 
 
 class KilimallScraper(BaseScraper):
@@ -111,6 +111,14 @@ class KilimallScraper(BaseScraper):
                             return null;
                         }
 
+                        function resolveReviews(item) {
+                            // Review count sits beside the rating as "(1280)"
+                            const el = item.querySelector('span.reviews');
+                            if (!el) return null;
+                            const digits = el.textContent.replace(/[^0-9]/g, '');
+                            return digits || null;
+                        }
+
                         return Array.from(document.querySelectorAll('div.product-item')).map(item => {
                             const titleEl = item.querySelector('.product-title');
                             const priceEl = item.querySelector('.product-price');
@@ -118,11 +126,12 @@ class KilimallScraper(BaseScraper):
                             const link    = item.closest('a') || item.querySelector('a');
 
                             return {
-                                title:     titleEl ? titleEl.textContent.trim() : '',
-                                priceText: priceEl ? priceEl.textContent.trim() : '0',
-                                imageUrl:  resolveImage(img),
-                                rating:    resolveRating(item),
-                                url:       link ? link.href : null
+                                title:       titleEl ? titleEl.textContent.trim() : '',
+                                priceText:   priceEl ? priceEl.textContent.trim() : '0',
+                                imageUrl:    resolveImage(img),
+                                rating:      resolveRating(item),
+                                reviewCount: resolveReviews(item),
+                                url:         link ? link.href : null
                             };
                         });
                     }
@@ -135,7 +144,7 @@ class KilimallScraper(BaseScraper):
             self.logger.error(f"Playwright fetch failed: {e}")
             return None
 
-    def scrape(self, query, max_pages=5, max_products=None):
+    def scrape(self, query, max_pages=5, max_products=DEFAULT_MAX_PRODUCTS):
         products = []
 
         for page_num in range(1, max_pages + 1):
@@ -161,6 +170,7 @@ class KilimallScraper(BaseScraper):
                     product_url = raw.get("url")
                     rating_val = raw.get("rating")
                     rating = f"{rating_val} out of 5" if rating_val else None
+                    review_count = raw.get("reviewCount") or "0"
 
                     products.append({
                         "title": title,
@@ -169,7 +179,7 @@ class KilimallScraper(BaseScraper):
                         "url": product_url,
                         "image_url": image_url,
                         "rating": rating,
-                        "review_count": "0"
+                        "review_count": review_count
                     })
                 except Exception as e:
                     self.logger.error(f"Error processing product: {e}")

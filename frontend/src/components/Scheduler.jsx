@@ -64,6 +64,7 @@ const Scheduler = ({ token }) => {
                             >
                                 <option value="Jumia">Jumia</option>
                                 <option value="Kilimall">Kilimall</option>
+                                <option value="Both">Both</option>
                             </select>
                         </div>
 

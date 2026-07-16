@@ -333,7 +333,7 @@ function App() {
                 <StatCard label="Failed Jobs"       value={stats.failed}    icon={Package}    bg="bg-red-100"    ic="text-red-600" />
                 <StatCard label="Total Items"       value={stats.totalItems} icon={TrendingUp} bg="bg-purple-100" ic="text-purple-600" />
               </div>
-              <AnalyticsCharts />
+              <AnalyticsCharts data={analyticsData} />
             </div>
           )}
 

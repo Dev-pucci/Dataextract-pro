@@ -5,6 +5,10 @@ import time
 import random
 import logging
 
+# Products a scrape returns when the caller doesn't ask for a specific number.
+# Shared by every scraper so that a "both sites" run returns comparable counts.
+DEFAULT_MAX_PRODUCTS = 40
+
 class BaseScraper:
     def __init__(self):
         self.ua = UserAgent()
