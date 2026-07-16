@@ -1,4 +1,4 @@
-from scraper.base import BaseScraper
+from scraper.base import BaseScraper, DEFAULT_MAX_PRODUCTS
 import urllib.parse
 
 class JumiaScraper(BaseScraper):
@@ -12,7 +12,7 @@ class JumiaScraper(BaseScraper):
             "Referer": "https://www.google.com/"
         }
 
-    def scrape(self, query, max_pages=1, max_products=None):
+    def scrape(self, query, max_pages=5, max_products=DEFAULT_MAX_PRODUCTS):
         products = []
         encoded_query = urllib.parse.quote(query)
 

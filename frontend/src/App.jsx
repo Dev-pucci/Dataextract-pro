@@ -1,22 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import {
-  LayoutDashboard,
-  LogOut,
-  User,
-  ChevronDown,
-  Play,
-  BarChart3,
-  Settings as SettingsIcon,
-  History,
-  Calendar,
-  Shield,
-  TrendingUp,
-  Clock,
-  CheckCircle,
-  Package,
-  Users,
-  ChevronRight
+  LayoutDashboard, LogOut, User, ChevronDown, Play, BarChart3,
+  Settings as SettingsIcon, History, Calendar, Shield, TrendingUp,
+  Clock, CheckCircle, Package, Users, ChevronRight, Scale
 } from 'lucide-react';
 import JobControl from './components/JobControl';
 import JobsList from './components/Dashboard';
@@ -30,10 +17,25 @@ import PastScheduledJobsTable from './components/PastScheduledJobsTable';
 import UserManagementTable from './components/UserManagementTable';
 import Settings from './components/Settings';
 import AccountSettings from './components/AccountSettings';
+import PriceComparison from './components/PriceComparison';
+import ComparisonPicker from './components/ComparisonPicker';
 import JobsSummaryTable from './components/JobsSummaryTable';
 
+const StatCard = ({ label, value, icon: Icon, bg, ic }) => (
+  <div className="bg-white rounded-lg shadow p-6">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm font-medium text-gray-600">{label}</p>
+        <p className="text-3xl font-bold text-black mt-2">{value}</p>
+      </div>
+      <div className={`h-12 w-12 ${bg} rounded-lg flex items-center justify-center`}>
+        <Icon className={`h-6 w-6 ${ic}`} />
+      </div>
+    </div>
+  </div>
+);
+
 function App() {
-  const [jobs, setJobs] = useState([]);
   const [selectedJob, setSelectedJob] = useState(null);
   const [view, setView] = useState('dashboard');
   const [token, setToken] = useState(localStorage.getItem('token'));
@@ -41,6 +43,8 @@ function App() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [analyticsData, setAnalyticsData] = useState(null);
   const [showAdminSubmenu, setShowAdminSubmenu] = useState(false);
+  const [recentJobs, setRecentJobs] = useState([]);
+  const [comparisonJobs, setComparisonJobs] = useState(null);
 
   useEffect(() => {
     if (token) {
@@ -61,12 +65,14 @@ function App() {
     }
   };
 
-  const fetchJobs = async () => {
+  const fetchRecentJobs = async () => {
     try {
-      const res = await axios.get('http://localhost:8000/api/jobs');
-      setJobs(res.data);
+      const res = await axios.get('http://localhost:8000/api/jobs?limit=5', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setRecentJobs(res.data.items || []);
     } catch (err) {
-      console.error("Error fetching jobs", err);
+      console.error("Error fetching recent jobs", err);
     }
   };
 
@@ -81,8 +87,8 @@ function App() {
 
   useEffect(() => {
     if (token) {
-      fetchJobs();
-      const interval = setInterval(fetchJobs, 5000);
+      fetchRecentJobs();
+      const interval = setInterval(fetchRecentJobs, 5000);
       return () => clearInterval(interval);
     }
   }, [token]);
@@ -93,29 +99,18 @@ function App() {
     }
   }, [token, view]);
 
-  const handleLogin = (newToken) => {
-    // Token is already set in localStorage by Login/Register components
-    window.location.reload();
+  const handleLogin = () => window.location.reload();
+  const handleLogout = () => { localStorage.removeItem('token'); window.location.reload(); };
+  const handleJobCreated = (jobs) => {
+    if (jobs?.length === 2) {
+      setComparisonJobs(jobs);
+      setView('comparison');
+    } else {
+      setView('history');
+    }
   };
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    setToken(null);
-    setUser(null);
-    setView('login');
-    setShowUserMenu(false);
-    window.location.reload(); // Force reload to clear state
-  };
-
-  const handleJobCreated = () => {
-    fetchJobs();
-    setView('history');
-  };
-
-  const handleViewProducts = (job) => {
-    setSelectedJob(job);
-    setView('products');
-  };
+  const handleCompare = (jobs) => { setComparisonJobs(jobs); setView('comparison'); };
+  const handleViewProducts = (job) => { setSelectedJob(job); setView('products'); };
 
   if (!token || view === 'login') {
     if (view === 'register') {
@@ -137,37 +132,12 @@ function App() {
       icon: Shield,
       submenu: [
         { id: 'admin-users', label: 'Users', icon: Users },
-        { id: 'admin-settings', label: 'Settings', icon: SettingsIcon }
+        { id: 'admin-settings', label: 'Settings', icon: SettingsIcon },
       ]
     },
   ];
 
-  const [recentJobs, setRecentJobs] = useState([]);
-
-  useEffect(() => {
-    if (token) {
-      fetchRecentJobs();
-      const interval = setInterval(fetchRecentJobs, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [token]);
-
-  const fetchRecentJobs = async () => {
-    try {
-      const res = await axios.get('http://localhost:8000/api/jobs?limit=5');
-      setRecentJobs(res.data.items || []);
-    } catch (err) {
-      console.error("Error fetching recent jobs", err);
-    }
-  };
-
-  const stats = analyticsData?.aggregate_stats || {
-    total: 0,
-    completed: 0,
-    running: 0,
-    failed: 0,
-    totalItems: 0,
-  };
+  const stats = analyticsData?.aggregate_stats || { total: 0, completed: 0, running: 0, failed: 0, totalItems: 0 };
 
   return (
     <div className="min-h-screen bg-gray-100 text-gray-900 font-sans">
@@ -191,11 +161,7 @@ function App() {
                     className="flex items-center space-x-2 px-3 py-2 rounded-md hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
                     {user.profile_image ? (
-                      <img
-                        src={user.profile_image}
-                        alt="Profile"
-                        className="h-8 w-8 rounded-full object-cover border border-gray-300"
-                      />
+                      <img src={user.profile_image} alt="Profile" className="h-8 w-8 rounded-full object-cover border border-gray-300" />
                     ) : (
                       <div className="h-8 w-8 rounded-full bg-indigo-600 flex items-center justify-center text-white font-semibold">
                         {user.username.charAt(0).toUpperCase()}
@@ -212,10 +178,7 @@ function App() {
                         <p className="text-xs text-gray-500">{user.email}</p>
                       </div>
                       <button
-                        onClick={() => {
-                          setView('account');
-                          setShowUserMenu(false);
-                        }}
+                        onClick={() => { setView('account'); setShowUserMenu(false); }}
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center"
                       >
                         <User className="h-4 w-4 mr-2" />
@@ -240,30 +203,14 @@ function App() {
       <div className="flex pt-16">
         <aside className="w-20 hover:w-64 bg-white border-r border-gray-200 fixed left-0 top-16 bottom-0 overflow-y-auto overflow-x-hidden transition-all duration-300 z-40 group peer">
           <nav className="px-3 py-4 flex flex-col gap-2 relative">
-            {menuItems.filter(item => {
-              // Hide admin menu for non-admin users
-              if (item.id === 'admin' && user?.role !== 'admin') {
-                return false;
-              }
-              return true;
-            }).map((item) => {
+            {menuItems.filter(item => item.id !== 'admin' || user?.role === 'admin').map((item) => {
               const Icon = item.icon;
-              const isActive = view === item.id || (item.submenu && item.submenu.some(sub => view === sub.id));
-
+              const isActive = view === item.id || item.submenu?.some(sub => view === sub.id);
               return (
                 <div key={item.id} className="relative">
                   <button
-                    onClick={() => {
-                      if (item.submenu) {
-                        setShowAdminSubmenu(!showAdminSubmenu);
-                      } else {
-                        setView(item.id);
-                      }
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 text-base font-medium rounded-md transition-colors ${isActive
-                      ? 'bg-indigo-50 text-indigo-600'
-                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                      }`}
+                    onClick={() => item.submenu ? setShowAdminSubmenu(!showAdminSubmenu) : setView(item.id)}
+                    className={`w-full flex items-center justify-between px-3 py-2 text-base font-medium rounded-md transition-colors ${isActive ? 'bg-indigo-50 text-indigo-600' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'}`}
                   >
                     <div className="flex items-center">
                       <Icon className={`h-6 w-6 min-w-[1.5rem] ${isActive ? 'text-indigo-600' : 'text-gray-400'}`} />
@@ -285,15 +232,10 @@ function App() {
                           <button
                             key={subItem.id}
                             onClick={() => setView(subItem.id)}
-                            className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${isSubActive
-                              ? 'bg-indigo-50 text-indigo-600'
-                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                              }`}
+                            className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${isSubActive ? 'bg-indigo-50 text-indigo-600' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
                           >
                             <SubIcon className={`h-5 w-5 min-w-[1.25rem] ${isSubActive ? 'text-indigo-600' : 'text-gray-400'}`} />
-                            <span className="ml-2 whitespace-nowrap overflow-hidden">
-                              {subItem.label}
-                            </span>
+                            <span className="ml-2 whitespace-nowrap overflow-hidden">{subItem.label}</span>
                           </button>
                         );
                       })}
@@ -308,59 +250,13 @@ function App() {
         <main className="flex-1 ml-20 peer-hover:ml-64 p-6 transition-all duration-300">
           {view === 'dashboard' && user && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
-                {/* <p className="text-gray-600">Welcome back, {user.username}!</p> */}
-              </div>
+              <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Total Jobs</p>
-                      <p className="text-3xl font-bold text-black mt-2">{stats.total}</p>
-                    </div>
-                    <div className="h-12 w-12 bg-indigo-100 rounded-lg flex items-center justify-center">
-                      <Play className="h-6 w-6 text-indigo-600" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Completed</p>
-                      <p className="text-3xl font-bold text-black mt-2">{stats.completed}</p>
-                    </div>
-                    <div className="h-12 w-12 bg-green-100 rounded-lg flex items-center justify-center">
-                      <CheckCircle className="h-6 w-6 text-green-600" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Running</p>
-                      <p className="text-3xl font-bold text-black mt-2">{stats.running}</p>
-                    </div>
-                    <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <Clock className="h-6 w-6 text-blue-600" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Total Items</p>
-                      <p className="text-3xl font-bold text-black mt-2">{stats.totalItems}</p>
-                    </div>
-                    <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                      <TrendingUp className="h-6 w-6 text-purple-600" />
-                    </div>
-                  </div>
-                </div>
+                <StatCard label="Total Jobs"  value={stats.total}     icon={Play}        bg="bg-indigo-100" ic="text-indigo-600" />
+                <StatCard label="Completed"   value={stats.completed} icon={CheckCircle} bg="bg-green-100"  ic="text-green-600" />
+                <StatCard label="Running"     value={stats.running}   icon={Clock}       bg="bg-blue-100"   ic="text-blue-600" />
+                <StatCard label="Total Items" value={stats.totalItems} icon={TrendingUp}  bg="bg-purple-100" ic="text-purple-600" />
               </div>
 
               <div className="bg-white rounded-lg shadow">
@@ -372,13 +268,10 @@ function App() {
                     <p className="text-gray-500 text-center py-4">No jobs yet. Create your first scrape!</p>
                   ) : (
                     <div className="space-y-3">
-                      {Array.isArray(recentJobs) && recentJobs.map((job) => (
+                      {recentJobs.map((job) => (
                         <div key={job.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer" onClick={() => handleViewProducts(job)}>
                           <div className="flex items-center space-x-3">
-                            <div className={`h-2 w-2 rounded-full ${job.status === 'completed' ? 'bg-green-500' :
-                              job.status === 'running' ? 'bg-blue-500' :
-                                job.status === 'failed' ? 'bg-red-500' : 'bg-yellow-500'
-                              }`} />
+                            <div className={`h-2 w-2 rounded-full ${job.status === 'completed' ? 'bg-green-500' : job.status === 'running' ? 'bg-blue-500' : job.status === 'failed' ? 'bg-red-500' : 'bg-yellow-500'}`} />
                             <div>
                               <p className="text-sm font-medium text-gray-900 capitalize">{job.site} - {job.query}</p>
                               <p className="text-xs text-gray-500">{new Date(job.start_time).toLocaleString()}</p>
@@ -396,18 +289,12 @@ function App() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <button
-                  onClick={() => setView('scrapers')}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg p-6 text-left transition-colors"
-                >
+                <button onClick={() => setView('scrapers')} className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg p-6 text-left transition-colors">
                   <Play className="h-8 w-8 mb-2" />
                   <h3 className="text-lg font-semibold">New Scrape Job</h3>
                   <p className="text-sm text-indigo-100 mt-1">Start scraping Jumia or Kilimall</p>
                 </button>
-                <button
-                  onClick={() => setView('scheduler')}
-                  className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg p-6 text-left transition-colors"
-                >
+                <button onClick={() => setView('scheduler')} className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg p-6 text-left transition-colors">
                   <Calendar className="h-8 w-8 mb-2" />
                   <h3 className="text-lg font-semibold">Schedule Job</h3>
                   <p className="text-sm text-purple-100 mt-1">Automate your scraping tasks</p>
@@ -418,16 +305,12 @@ function App() {
 
           {view === 'jobs' && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Scraping Jobs</h2>
-              </div>
+              <h2 className="text-2xl font-bold text-gray-900">Scraping Jobs</h2>
               <ScheduledJobsList token={token} />
-
               <div className="mt-8">
                 <h3 className="text-xl font-bold text-gray-900 mb-4">Past Jobs</h3>
                 <PastScheduledJobsTable token={token} onViewProducts={handleViewProducts} />
               </div>
-
               <div className="mt-8">
                 <JobsSummaryTable token={token} />
               </div>
@@ -443,89 +326,51 @@ function App() {
 
           {view === 'analytics' && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Analytics</h2>
-              </div>
+              <h2 className="text-2xl font-bold text-gray-900">Analytics</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Total Jobs</p>
-                      <p className="text-3xl font-bold text-black mt-2">{stats.total}</p>
-                    </div>
-                    <div className="h-12 w-12 bg-indigo-100 rounded-lg flex items-center justify-center">
-                      <Play className="h-6 w-6 text-indigo-600" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Products Scraped</p>
-                      <p className="text-3xl font-bold text-black mt-2">{analyticsData?.aggregate_stats?.totalItems || 0}</p>
-                    </div>
-                    <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <Package className="h-6 w-6 text-blue-600" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Failed Jobs</p>
-                      <p className="text-3xl font-bold text-black mt-2">{analyticsData?.aggregate_stats?.failed || 0}</p>
-                    </div>
-                    <div className="h-12 w-12 bg-red-100 rounded-lg flex items-center justify-center">
-                      <Package className="h-6 w-6 text-red-600" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-lg shadow p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">Total Items</p>
-                      <p className="text-3xl font-bold text-black mt-2">{stats.totalItems}</p>
-                    </div>
-                    <div className="h-12 w-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                      <TrendingUp className="h-6 w-6 text-purple-600" />
-                    </div>
-                  </div>
-                </div>
+                <StatCard label="Total Jobs"        value={stats.total}     icon={Play}       bg="bg-indigo-100" ic="text-indigo-600" />
+                <StatCard label="Products Scraped"  value={stats.totalItems} icon={Package}   bg="bg-blue-100"   ic="text-blue-600" />
+                <StatCard label="Failed Jobs"       value={stats.failed}    icon={Package}    bg="bg-red-100"    ic="text-red-600" />
+                <StatCard label="Total Items"       value={stats.totalItems} icon={TrendingUp} bg="bg-purple-100" ic="text-purple-600" />
               </div>
-              <AnalyticsCharts />
+              <AnalyticsCharts data={analyticsData} />
             </div>
           )}
 
-          {view === 'scheduler' && (
-            <div className="space-y-6">
-              <Scheduler token={token} />
-            </div>
-          )}
+          {view === 'scheduler' && <Scheduler token={token} />}
 
           {view === 'history' && (
             <div className="space-y-6">
-              <div>
+              <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-gray-900">History</h2>
+                <button
+                  onClick={() => setView('comparison-picker')}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                >
+                  <Scale className="h-4 w-4 mr-2" />
+                  Comparison
+                </button>
               </div>
               <JobsList token={token} onViewProducts={handleViewProducts} />
             </div>
           )}
 
-
           {view === 'admin-users' && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">User Management</h2>
-              </div>
+              <h2 className="text-2xl font-bold text-gray-900">User Management</h2>
               <UserManagementTable token={token} />
             </div>
           )}
 
-          {view === 'admin-settings' && (
-            <Settings token={token} />
+          {view === 'admin-settings' && <Settings token={token} />}
+
+
+          {view === 'comparison-picker' && (
+            <ComparisonPicker token={token} onCompare={handleCompare} onBack={() => setView('history')} />
+          )}
+
+          {view === 'comparison' && comparisonJobs && (
+            <PriceComparison jobs={comparisonJobs} token={token} onBack={() => setView('history')} />
           )}
 
           {view === 'products' && selectedJob && (

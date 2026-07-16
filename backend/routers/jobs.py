@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
-from typing import Optional
+from typing import List, Optional
 import csv
 import io
 from datetime import datetime
@@ -13,8 +13,8 @@ from datetime import datetime
 from database import get_db
 from models import ScrapeJob, JobStatus, Product, User
 from auth import get_current_user
-from services import run_scraper_task
-from schemas import JobCreate, JobResponse, PaginatedJobResponse
+from services import run_scraper_task, run_paired_scraper_task, BOTH_SITES
+from schemas import JobCreate, BothJobCreate, JobResponse, PaginatedJobResponse
 
 router = APIRouter(prefix="/api", tags=["jobs"])
 
@@ -78,6 +78,33 @@ async def create_job(
 
     background_tasks.add_task(run_scraper_task, new_job.id)
     return new_job
+
+
+@router.post("/jobs/both", response_model=List[JobResponse])
+async def create_both_jobs(
+    job: BothJobCreate,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Scrape every site for one query, returning the same number of products
+    from each so the results can be compared like for like."""
+    new_jobs = [
+        ScrapeJob(
+            site=site,
+            query=job.query,
+            status=JobStatus.PENDING,
+            user_id=current_user.id
+        )
+        for site in BOTH_SITES
+    ]
+    db.add_all(new_jobs)
+    await db.commit()
+    for new_job in new_jobs:
+        await db.refresh(new_job)
+
+    background_tasks.add_task(run_paired_scraper_task, [j.id for j in new_jobs])
+    return new_jobs
 
 
 @router.get("/jobs", response_model=PaginatedJobResponse)

@@ -35,7 +35,10 @@ async def create_scheduled_job(
             # Use timezone-aware datetime to match scheduler timezone
             now_tz = datetime.now(NAIROBI_TZ)
             cron = croniter(job_data.cron_expression, now_tz)
-            next_run = cron.get_next(datetime)
+            # croniter returns a Nairobi-aware time; store it as naive UTC so it
+            # matches created_at/last_run and the restore path in main.py, and so
+            # the UtcDatetime serializer doesn't add the offset a second time.
+            next_run = cron.get_next(datetime).astimezone(timezone('UTC')).replace(tzinfo=None)
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid cron expression: {str(e)}")
 

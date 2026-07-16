@@ -1,176 +1,152 @@
-import React, { useState } from 'react';
-import { Save, Server, Database, Mail, Shield } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import axios from 'axios';
+import { Calendar, Trash2, RefreshCw, ToggleLeft, ToggleRight, Package, Briefcase } from 'lucide-react';
+
+const BASE = 'http://localhost:8000/api/admin';
+
+const StatPill = ({ label, value, color = 'gray' }) => (
+    <div className={`bg-${color}-50 border border-${color}-200 rounded-lg px-4 py-3`}>
+        <p className="text-xs text-gray-500">{label}</p>
+        <p className={`text-2xl font-bold text-${color}-700 mt-0.5`}>{value ?? '—'}</p>
+    </div>
+);
+
+const Section = ({ title, icon: Icon, children }) => (
+    <div className="bg-white rounded-lg shadow">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
+            <Icon className="h-5 w-5 text-gray-400" />
+            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+        </div>
+        <div className="p-6 space-y-4">{children}</div>
+    </div>
+);
+
+const ActionButton = ({ onClick, loading, disabled, variant = 'default', children }) => {
+    const cls = {
+        default: 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50',
+        danger:  'border-red-300 text-red-700 bg-white hover:bg-red-50',
+        primary: 'border-transparent text-white bg-indigo-600 hover:bg-indigo-700',
+    }[variant];
+    return (
+        <button
+            onClick={onClick}
+            disabled={disabled || loading}
+            className={`inline-flex items-center gap-2 px-4 py-2 border rounded-md shadow-sm text-sm font-medium focus:outline-none disabled:opacity-50 transition-colors ${cls}`}
+        >
+            {loading && <RefreshCw className="h-4 w-4 animate-spin" />}
+            {children}
+        </button>
+    );
+};
 
 const Settings = ({ token }) => {
-    const [settings, setSettings] = useState({
-        apiEndpoint: 'http://localhost:8000',
-        maxConcurrentJobs: 5,
-        defaultMaxProducts: 10,
-        emailNotifications: true,
-        securityLevel: 'medium'
-    });
+    const [stats, setStats] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [busy, setBusy] = useState('');
 
-    const [saved, setSaved] = useState(false);
+    const headers = { Authorization: `Bearer ${token}` };
 
-    const handleChange = (key, value) => {
-        setSettings(prev => ({
-            ...prev,
-            [key]: value
-        }));
+    useEffect(() => { fetchStats(); }, []);
+
+    const fetchStats = async () => {
+        try {
+            setLoading(true);
+            const res = await axios.get(`${BASE}/settings/stats`, { headers });
+            setStats(res.data);
+        } catch (err) {
+            console.error('Error fetching stats', err);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleSave = () => {
-        // In a real implementation, this would save to backend
-        console.log('Saving settings:', settings);
-        setSaved(true);
-        setTimeout(() => setSaved(false), 3000);
+    const run = async (key, fn) => {
+        setBusy(key);
+        try {
+            await fn();
+            await fetchStats();
+        } catch (err) {
+            alert(err.response?.data?.detail || 'Action failed');
+        } finally {
+            setBusy('');
+        }
     };
+
+    const toggleScheduled = () => run('toggle', () =>
+        axios.patch(`${BASE}/settings/scheduled-jobs/toggle`, {}, { headers })
+    );
+
+    const deleteScheduled = () => {
+        if (!confirm('Delete all scheduled jobs? This cannot be undone.')) return;
+        run('deleteScheduled', () =>
+            axios.delete(`${BASE}/settings/scheduled-jobs`, { headers })
+        );
+    };
+
+    const deleteOldJobs = () => {
+        if (!confirm('Delete all completed jobs older than 30 days? Their product data will also be removed.')) return;
+        run('deleteOld', () =>
+            axios.delete(`${BASE}/maintenance/jobs/old?days=30`, { headers })
+        );
+    };
+
+    const clearProducts = () => {
+        if (!confirm('Clear ALL scraped product data? Job records will remain but all products will be deleted.')) return;
+        run('clearProducts', () =>
+            axios.delete(`${BASE}/maintenance/products`, { headers })
+        );
+    };
+
+    const allActive = stats?.active_scheduled_jobs > 0;
 
     return (
-        <div className="space-y-6">
-            <div>
-                <h2 className="text-2xl font-bold text-gray-900">System Settings</h2>
-                <p className="text-gray-600 mt-1">Configure system-wide settings for ScraperPro</p>
-            </div>
+        <div className="max-w-3xl mx-auto space-y-6">
+            <h2 className="text-2xl font-bold text-gray-900">Settings</h2>
 
-            <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                        <Server className="h-5 w-5 mr-2 text-indigo-600" />
-                        API Settings
-                    </h3>
-                </div>
-                <div className="p-6 space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            API Endpoint
-                        </label>
-                        <input
-                            type="text"
-                            value={settings.apiEndpoint}
-                            onChange={(e) => handleChange('apiEndpoint', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">The base URL for the ScraperPro API</p>
-                    </div>
-                </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                        <Database className="h-5 w-5 mr-2 text-indigo-600" />
-                        Scraping Settings
-                    </h3>
-                </div>
-                <div className="p-6 space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Maximum Concurrent Jobs
-                        </label>
-                        <input
-                            type="number"
-                            value={settings.maxConcurrentJobs}
-                            onChange={(e) => handleChange('maxConcurrentJobs', parseInt(e.target.value))}
-                            min="1"
-                            max="20"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Number of jobs that can run simultaneously</p>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Default Max Products
-                        </label>
-                        <input
-                            type="number"
-                            value={settings.defaultMaxProducts}
-                            onChange={(e) => handleChange('defaultMaxProducts', parseInt(e.target.value))}
-                            min="1"
-                            max="1000"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">Default maximum products to scrape per job</p>
-                    </div>
-                </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                        <Mail className="h-5 w-5 mr-2 text-indigo-600" />
-                        Notifications
-                    </h3>
-                </div>
-                <div className="p-6 space-y-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <label className="text-sm font-medium text-gray-700">
-                                Email Notifications
-                            </label>
-                            <p className="text-xs text-gray-500 mt-1">Receive email updates on job completion</p>
+            <Section title="Scheduling" icon={Calendar}>
+                {loading ? (
+                    <p className="text-sm text-gray-500">Loading...</p>
+                ) : (
+                    <>
+                        <div className="grid grid-cols-2 gap-4">
+                            <StatPill label="Total scheduled jobs"  value={stats?.total_scheduled_jobs}  color="indigo" />
+                            <StatPill label="Active scheduled jobs" value={stats?.active_scheduled_jobs} color="green" />
                         </div>
-                        <button
-                            onClick={() => handleChange('emailNotifications', !settings.emailNotifications)}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                settings.emailNotifications ? 'bg-indigo-600' : 'bg-gray-200'
-                            }`}
-                        >
-                            <span
-                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                    settings.emailNotifications ? 'translate-x-6' : 'translate-x-1'
-                                }`}
-                            />
-                        </button>
-                    </div>
-                </div>
-            </div>
+                        <div className="flex flex-wrap gap-3 pt-2">
+                            <ActionButton onClick={toggleScheduled} loading={busy === 'toggle'} variant="primary">
+                                {allActive
+                                    ? <><ToggleLeft  className="h-4 w-4" /> Disable all</>
+                                    : <><ToggleRight className="h-4 w-4" /> Enable all</>}
+                            </ActionButton>
+                            <ActionButton onClick={deleteScheduled} loading={busy === 'deleteScheduled'} variant="danger" disabled={!stats?.total_scheduled_jobs}>
+                                <Trash2 className="h-4 w-4" /> Delete all scheduled jobs
+                            </ActionButton>
+                        </div>
+                    </>
+                )}
+            </Section>
 
-            <div className="bg-white rounded-lg shadow">
-                <div className="px-6 py-4 border-b border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                        <Shield className="h-5 w-5 mr-2 text-indigo-600" />
-                        Security
-                    </h3>
-                </div>
-                <div className="p-6 space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Security Level
-                        </label>
-                        <select
-                            value={settings.securityLevel}
-                            onChange={(e) => handleChange('securityLevel', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                        >
-                            <option value="low">Low - Minimal restrictions</option>
-                            <option value="medium">Medium - Balanced security</option>
-                            <option value="high">High - Maximum security</option>
-                        </select>
-                        <p className="text-xs text-gray-500 mt-1">Controls rate limiting and access restrictions</p>
-                    </div>
-                </div>
-            </div>
-
-            <div className="flex justify-end space-x-3">
-                <button
-                    onClick={handleSave}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                >
-                    <Save className="h-4 w-4 mr-2" />
-                    Save Settings
-                </button>
-            </div>
-
-            {saved && (
-                <div className="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center">
-                    <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    Settings saved successfully!
-                </div>
-            )}
+            <Section title="Maintenance" icon={Briefcase}>
+                {loading ? (
+                    <p className="text-sm text-gray-500">Loading...</p>
+                ) : (
+                    <>
+                        <div className="grid grid-cols-3 gap-4">
+                            <StatPill label="Total scrape jobs"   value={stats?.total_jobs}           color="gray" />
+                            <StatPill label="Old completed jobs"  value={stats?.old_completed_jobs}   color="yellow" />
+                            <StatPill label="Total products"      value={stats?.total_products?.toLocaleString()} color="gray" />
+                        </div>
+                        <div className="flex flex-wrap gap-3 pt-2">
+                            <ActionButton onClick={deleteOldJobs} loading={busy === 'deleteOld'} variant="danger" disabled={!stats?.old_completed_jobs}>
+                                <Trash2 className="h-4 w-4" /> Delete jobs older than 30 days
+                            </ActionButton>
+                            <ActionButton onClick={clearProducts} loading={busy === 'clearProducts'} variant="danger" disabled={!stats?.total_products}>
+                                <Package className="h-4 w-4" /> Clear all product data
+                            </ActionButton>
+                        </div>
+                    </>
+                )}
+            </Section>
         </div>
     );
 };

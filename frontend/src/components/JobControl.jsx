@@ -10,8 +10,13 @@ const JobControl = ({ onJobCreated, onCancel }) => {
         e.preventDefault();
         setLoading(true);
         try {
-            await axios.post('http://localhost:8000/api/jobs', { site, query });
-            onJobCreated();
+            if (site === 'both') {
+                const res = await axios.post('http://localhost:8000/api/jobs/both', { query });
+                onJobCreated(res.data);
+            } else {
+                await axios.post('http://localhost:8000/api/jobs', { site, query });
+                onJobCreated();
+            }
         } catch (err) {
             console.error("Error creating job", err);
             alert("Failed to create job");
@@ -33,6 +38,7 @@ const JobControl = ({ onJobCreated, onCancel }) => {
                     >
                         <option value="jumia">Jumia</option>
                         <option value="kilimall">Kilimall</option>
+                        <option value="both">Both</option>
                     </select>
                 </div>
                 <div>
